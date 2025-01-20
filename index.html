@@ -19,11 +19,10 @@
       transition: border-color 0.3s, box-shadow 0.3s;
     }
 
-    /* 输入框聚焦时的效果 */
     textarea:focus {
       border-color: #73c0de;
       box-shadow: 0 0 8px rgba(115, 192, 222, 0.5);
-      outline: none; /* 去掉默认的蓝色边框 */
+      outline: none; 
     }
     button{
       border-radius: 15px;
@@ -62,6 +61,7 @@
       background-color: #444;
       color: #e0e0e0;
       border: none;
+      border-radius: 30px;
       padding: 10px;
       cursor: pointer;
       transition: 0.3s;
@@ -162,10 +162,6 @@
         }
       });
 
-      // 输出 JSON 格式数据
-      const jsonOutput = JSON.stringify(priceSizeCounts, null, 2);
-      // document.getElementById("jsonOutput").textContent = jsonOutput;
-
       // 将统计结果转化为数组并按销售数量从高到低排序
       const sortedPriceSizeCounts = Object.values(priceSizeCounts).sort((a, b) => b.count - a.count);
 
@@ -173,7 +169,6 @@
       const tableBody = document.getElementById("orderTable").querySelector("tbody");
       tableBody.innerHTML = ''; // 清空现有表格内容
 
-      // 将每个价格、尺码和销售数量显示在表格中
       sortedPriceSizeCounts.forEach(({ amount, size, count }) => {
         const row = document.createElement("tr");
         const priceCell = document.createElement("td");
@@ -190,12 +185,13 @@
         tableBody.appendChild(row);
       });
 
-     // 提取日期和价格数据
-     const chartData = sales.map(sale => {
+      // 提取日期、价格和销量数据
+      const chartData = sales.map(sale => {
         const date = new Date(sale.node.createdAt); // 日期
         const amount = sale.node.amount; // 价格
+        const quantity = sale.node.quantity || 1; // 销量，默认为 1
         const formattedDate = date.toISOString().split('T')[0]; // 格式化为 YYYY-MM-DD
-        return [formattedDate, amount];
+        return [formattedDate, amount, quantity];
       });
 
       // 更新 ECharts 图表
@@ -206,48 +202,72 @@
       const chartContainer = document.getElementById('chartContainer');
       const myChart = echarts.init(chartContainer);
 
-      const dates = data.map(item => item[0]);
-      const prices = data.map(item => item[1]);
+      const dates = [...new Set(data.map(item => item[0]))]; // 获取所有日期
+      const priceData = dates.map(date => {
+        return data.filter(item => item[0] === date).map(item => item[1]);
+      });
+      const quantityData = dates.map(date => {
+        return data.filter(item => item[0] === date).map(item => item[2]);
+      });
 
       const option = {
         title: {
-          text: '销售价格与日期柱状图',
+          text: '销售数据统计',
         },
         tooltip: {
           trigger: 'axis',
           axisPointer: {
-            type: 'shadow',
-          },
-          formatter: function (params) {
-            const param = params[0];
-            return `
-              日期: ${param.name}<br>
-              销售价格: $${param.value}<br>
-            `;
+            type: 'cross',
+            crossStyle: {
+              color: '#999'
+            }
           }
+        },
+        legend: {
+          data: ['价格', '销量'],
         },
         xAxis: {
           type: 'category',
           data: dates,
-          boundaryGap: true,
           name: '日期',
           axisLabel: {
-            interval: 0, // 保证显示所有日期
-            rotate: 45,  // 使日期倾斜，避免重叠
-          },
-        },
-        yAxis: {
-          type: 'value',
-          name: '价格 (US$)',
-        },
-        series: [{
-          name: '销售价格',
-          type: 'bar',
-          data: prices,
-          itemStyle: {
-            color: '#73c0de',
+            interval: 0,
+            rotate: 45,
           }
-        }]
+        },
+        yAxis: [
+          {
+            type: 'value',
+            name: '价格 (US$)',
+            position: 'left',
+          },
+          {
+            type: 'value',
+            name: '销量',
+            position: 'right',
+            offset: 40,
+          }
+        ],
+        series: [
+          {
+            name: '价格',
+            type: 'line',
+            data: priceData.flat(),
+            yAxisIndex: 0,
+            itemStyle: {
+              color: '#73c0de',
+            }
+          },
+          {
+            name: '销量',
+            type: 'line',
+            data: quantityData.flat(),
+            yAxisIndex: 1,
+            itemStyle: {
+              color: '#ff7f50',
+            }
+          }
+        ]
       };
 
       myChart.setOption(option);
